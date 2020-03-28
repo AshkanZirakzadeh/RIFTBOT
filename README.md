@@ -1,0 +1,2 @@
+# RIFTBOT
+Rift Esports Bot
