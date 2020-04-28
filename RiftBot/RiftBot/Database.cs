@@ -10,9 +10,9 @@ namespace RiftBot
 {
     class PlayerObject
     {
-        public int discordID; //primary key
+        public ulong discordID; //primary key
         public DateTime created;
-        public List<int> summonerIDs;
+        public List<string> summonerIDs;
         public bool riftPlayer;
     }
 
@@ -30,15 +30,15 @@ namespace RiftBot
 
     class DatabaseStore
     {
-        public Dictionary<int, PlayerObject> players;
-        public Dictionary<int, List<Game>> games;
+        public Dictionary<ulong, PlayerObject> players;
+        public Dictionary<ulong, List<Game>> games;
     }
 
     class Database
     {
         const string filePath = @"Database.json";
-        Dictionary<int, PlayerObject> players;
-        Dictionary<int, List<Game>> games;
+        Dictionary<ulong, PlayerObject> players;
+        Dictionary<ulong, List<Game>> games;
 
         public void Load()
         {
@@ -51,8 +51,8 @@ namespace RiftBot
             }
             else
             {
-                players = new Dictionary<int, PlayerObject>();
-                games = new Dictionary<int, List<Game>>();
+                players = new Dictionary<ulong, PlayerObject>();
+                games = new Dictionary<ulong, List<Game>>();
             }
         }
 
@@ -70,7 +70,7 @@ namespace RiftBot
 
         //Adds a new user to the database
         //Returns false if failed due to existing IDs
-        public bool AddNewUser(int discordID, int summonerID)
+        public bool AddNewUser(ulong discordID, string summonerID)
         {
             if (players.ContainsKey(discordID))
             {
@@ -86,7 +86,7 @@ namespace RiftBot
             {
                 discordID = discordID,
                 created = DateTime.UtcNow,
-                summonerIDs = new List<int>() { summonerID }
+                summonerIDs = new List<string>() { summonerID }
             };
 
             players.Add(newUser.discordID, newUser);
@@ -97,7 +97,7 @@ namespace RiftBot
 
         //Adds information for a game to the database
         //Returns false if adding failed due to game already being in the database, and true otherwise
-        public bool AddNewGame(int discordID, int GameID, DateTime played, bool win, int kills, int deaths, int assists, int visionScore, int champion)
+        public bool AddNewGame(ulong discordID, int GameID, DateTime played, bool win, int kills, int deaths, int assists, int visionScore, int champion)
         {
             PlayerObject player = players[discordID];
 
@@ -114,6 +114,7 @@ namespace RiftBot
             Game newGame = new Game()
             {
                 gameID = GameID,
+                played = played,
                 win = win,
                 kills = kills,
                 deaths = deaths,
@@ -127,7 +128,7 @@ namespace RiftBot
             return true;
         }
 
-        public List<Game> GetGamesOfUser(int discordID)
+        public List<Game> GetGamesOfUser(ulong discordID)
         {
             if (!players.ContainsKey(discordID))
             {
@@ -142,7 +143,7 @@ namespace RiftBot
             return new List<PlayerObject>(players.Values);
         }
 
-        public void SetPlayerStatus(int discordID, bool status)
+        public void SetPlayerStatus(ulong discordID, bool status)
         {
             if (!players.ContainsKey(discordID))
             {
@@ -153,7 +154,7 @@ namespace RiftBot
         }
 
         //returns false if failed due to existing ID/not registered
-        public bool AddNewSummonerID(int discordID, int summonerID)
+        public bool AddNewSummonerID(ulong discordID, string summonerID)
         {
             if (!players.ContainsKey(discordID))
             {
@@ -172,7 +173,7 @@ namespace RiftBot
 
         //Checks if a summoner ID is assosciated with ANY account
         //Returns true if the ID already assosciated
-        bool CheckSummonerExists(int summonerID)
+        bool CheckSummonerExists(string summonerID)
         {
             foreach(PlayerObject player in players.Values)
             {

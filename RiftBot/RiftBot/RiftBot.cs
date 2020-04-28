@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using RiotNet;
+using Discord.Commands;
+using System.Reflection;
 
 namespace RiftBot
 {
@@ -13,32 +16,45 @@ namespace RiftBot
         public static void Main(string[] args)
             => new RiftBot().MainAsync().GetAwaiter().GetResult();
 
-        public DiscordSocketClient _client;
-        public Database database;
-        public System.Threading.Timer timer;
+        public static CommandHandler handler;
+        public static DiscordSocketClient client;
+        public static IRiotClient riotInstance;
+
+        public static Database database;
+        System.Threading.Timer dbSaveTimer;
+        
 
         public async Task MainAsync()
         {
             database = new Database();
             database.Load();
 
-            timer = new System.Threading.Timer(SaveDatabase, null, 1000, 1000 * 10);
+            dbSaveTimer = new System.Threading.Timer(SaveDatabase, null, 1000, 1000 * 10);
+
+            riotInstance = new RiotClient(new RiotClientSettings
+            {
+                ApiKey = Keys.RIOT_KEY
+            });
 
             string bot_token = Keys.DISCORD_KEY;
+            client = new DiscordSocketClient();
 
-            _client = new DiscordSocketClient();
+            handler = new CommandHandler(client, new CommandService());
+            
 
-            _client.Log += Log;
-            _client.Ready += () =>
+            client.Log += Log;
+            client.Ready += () =>
             {
                 Console.WriteLine("Bot is connected!");
                 return Task.CompletedTask;
             };
 
-            await _client.LoginAsync(TokenType.Bot, bot_token);
-            await _client.StartAsync();
+            await client.LoginAsync(TokenType.Bot, bot_token);
+            await client.StartAsync();
 
-            _client.Disconnected += (evt) =>
+            await handler.InstallCommandsAsync();
+
+            client.Disconnected += (evt) =>
             {
                 database.Save();
                 return Task.CompletedTask;
@@ -56,6 +72,56 @@ namespace RiftBot
         {
             Console.WriteLine(msg.ToString());
             return Task.CompletedTask;
+        }
+    }
+
+    public class CommandHandler
+    {
+        private readonly DiscordSocketClient _client;
+        private readonly CommandService _commands;
+
+        // Retrieve client and CommandService instance via ctor
+        public CommandHandler(DiscordSocketClient client, CommandService commands)
+        {
+            _commands = commands;
+            _client = client;
+        }
+
+        public async Task InstallCommandsAsync()
+        {
+            // Hook the MessageReceived event into our command handler
+            _client.MessageReceived += HandleCommandAsync;
+
+            await _commands.AddModulesAsync(assembly: Assembly.GetEntryAssembly(),
+                                            services: null);
+        }
+
+        private async Task HandleCommandAsync(SocketMessage messageParam)
+        {
+            Console.WriteLine(">" + messageParam.Content);
+
+            // Don't process the command if it was a system message
+            var message = messageParam as SocketUserMessage;
+            if (message == null) return;
+
+            // Create a number to track where the prefix ends and the command begins
+            int argPos = 0;
+
+            // Determine if the message is a command based on the prefix and make sure no bots trigger commands
+            if (!(message.HasCharPrefix('!', ref argPos) ||
+                message.HasMentionPrefix(_client.CurrentUser, ref argPos)) ||
+                message.Author.IsBot)
+                return;
+
+            // Create a WebSocket-based command context based on the message
+            var context = new SocketCommandContext(_client, message);
+
+            // Execute the command with the command context we just
+            // created, along with the service provider for precondition checks.
+            await _commands.ExecuteAsync(
+                context: context,
+                argPos: argPos,
+                services: null);
         }
     }
 }
