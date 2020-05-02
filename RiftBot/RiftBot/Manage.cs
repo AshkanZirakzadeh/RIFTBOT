@@ -16,13 +16,17 @@ public class ManageModule : ModuleBase<SocketCommandContext>
         {
             await ReplyAsync("Please supply a summonerID Ex: \"!manage register MYIGN\"");
         }
+        else if (RiftBot.RiftBot.database.DiscordUserExists(Context.Client.CurrentUser.Id))
+        {
+            await ReplyAsync("You are already registered");
+        }
         else
         {
             bool addSuccess = false;
 
             try
             {
-                var summoner = (await RiftBot.RiftBot.riotInstance.GetSummonerBySummonerNameAsync(summonerID, RiotNet.Models.PlatformId.NA1));
+                var summoner = (await RiftBot.RiftBot.riotInstance.GetSummonerBySummonerNameAsync(summonerID));
                 addSuccess = RiftBot.RiftBot.database.AddNewUser(Context.Client.CurrentUser.Id, summoner.AccountId);
 
                 if (addSuccess)

@@ -22,15 +22,15 @@ namespace RiftBot
 
         public static Database database;
         System.Threading.Timer dbSaveTimer;
-        
+        System.Threading.Timer gameFetchTimer;
+
 
         public async Task MainAsync()
         {
             database = new Database();
             database.Load();
 
-            dbSaveTimer = new System.Threading.Timer(SaveDatabase, null, 1000, 1000 * 10);
-
+            RiotClient.DefaultPlatformId = RiotNet.Models.PlatformId.NA1;
             riotInstance = new RiotClient(new RiotClientSettings
             {
                 ApiKey = Keys.RIOT_KEY
@@ -54,6 +54,9 @@ namespace RiftBot
 
             await handler.InstallCommandsAsync();
 
+            dbSaveTimer = new System.Threading.Timer(SaveDatabase, null, 1000, 1000 * 10); //10 seconds
+            gameFetchTimer = new System.Threading.Timer(FetchGames, null, 1000, 1000 * 60 * 10); //10 minutes
+
             client.Disconnected += (evt) =>
             {
                 database.Save();
@@ -66,6 +69,16 @@ namespace RiftBot
         void SaveDatabase(object state)
         {
             database.Save();
+        }
+
+        void FetchGames(object state)
+        {
+            List<Task> tasks = new List<Task>();
+            foreach(PlayerObject player in database.GetAllPlayers())
+            {
+                Console.WriteLine(string.Format("Attempting to fetch games for {0}", player.discordID));
+                tasks.Add(GetMatches.AddGamesToDatabase(database, player));
+            }
         }
 
         Task Log(LogMessage msg)
@@ -98,8 +111,6 @@ namespace RiftBot
 
         private async Task HandleCommandAsync(SocketMessage messageParam)
         {
-            Console.WriteLine(">" + messageParam.Content);
-
             // Don't process the command if it was a system message
             var message = messageParam as SocketUserMessage;
             if (message == null) return;
@@ -108,10 +119,12 @@ namespace RiftBot
             int argPos = 0;
 
             // Determine if the message is a command based on the prefix and make sure no bots trigger commands
-            if (!(message.HasCharPrefix('!', ref argPos) ||
+            if (!(message.HasCharPrefix('%', ref argPos) ||
                 message.HasMentionPrefix(_client.CurrentUser, ref argPos)) ||
                 message.Author.IsBot)
                 return;
+
+            Console.WriteLine(">" + messageParam.Content);
 
             // Create a WebSocket-based command context based on the message
             var context = new SocketCommandContext(_client, message);

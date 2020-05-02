@@ -157,6 +157,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Database.cs" />
+    <Compile Include="GetMatches.cs" />
     <Compile Include="Keys.cs" />
     <Compile Include="Manage.cs" />
     <Compile Include="RiftBot.cs" />

@@ -8,23 +8,25 @@ using System.Threading.Tasks;
 
 namespace RiftBot
 {
-    class PlayerObject
+    public class PlayerObject
     {
         public ulong discordID; //primary key
         public DateTime created;
+        public DateTime lastUpdated;
         public List<string> summonerIDs;
         public bool riftPlayer;
     }
 
-    class Game
+    public class Game
     {
-        public int gameID;
+        public long gameID;
         public DateTime played;
         public bool win;
         public int kills;
         public int deaths;
         public int assists;
-        public int visionScore;
+        public long visionScore;
+        public int creepScore;
         public int championPlayed;
     }
 
@@ -34,8 +36,10 @@ namespace RiftBot
         public Dictionary<ulong, List<Game>> games;
     }
 
-    class Database
+    public class Database
     {
+        private readonly object databaseLock = new object();
+
         const string filePath = @"Database.json";
         Dictionary<ulong, PlayerObject> players;
         Dictionary<ulong, List<Game>> games;
@@ -68,6 +72,11 @@ namespace RiftBot
             File.WriteAllText(filePath, json);
         }
 
+        public bool DiscordUserExists(ulong discordID)
+        {
+            return players.ContainsKey(discordID);
+        }
+
         //Adds a new user to the database
         //Returns false if failed due to existing IDs
         public bool AddNewUser(ulong discordID, string summonerID)
@@ -86,18 +95,22 @@ namespace RiftBot
             {
                 discordID = discordID,
                 created = DateTime.UtcNow,
+                lastUpdated = DateTime.UtcNow,
                 summonerIDs = new List<string>() { summonerID }
             };
 
-            players.Add(newUser.discordID, newUser);
-            games.Add(newUser.discordID, new List<Game>());
+            lock(databaseLock)
+            {
+                players.Add(newUser.discordID, newUser);
+                games.Add(newUser.discordID, new List<Game>());
+            }
 
             return true;
         }
 
         //Adds information for a game to the database
         //Returns false if adding failed due to game already being in the database, and true otherwise
-        public bool AddNewGame(ulong discordID, int GameID, DateTime played, bool win, int kills, int deaths, int assists, int visionScore, int champion)
+        public bool AddNewGame(ulong discordID, long GameID, DateTime played, bool win, int kills, int deaths, int assists, long visionScore, int creepScore, int champion)
         {
             PlayerObject player = players[discordID];
 
@@ -120,10 +133,13 @@ namespace RiftBot
                 deaths = deaths,
                 assists = assists,
                 visionScore = visionScore,
+                creepScore = creepScore,
                 championPlayed = champion
             };
-
-            games[player.discordID].Add(newGame);
+            lock (databaseLock)
+            {
+                games[player.discordID].Add(newGame);
+            }
 
             return true;
         }
@@ -134,13 +150,18 @@ namespace RiftBot
             {
                 return null;
             }
-
-            return games[discordID];
+            lock (databaseLock)
+            {
+                return games[discordID];
+            }
         }
 
         public List<PlayerObject> GetAllPlayers()
         {
-            return new List<PlayerObject>(players.Values);
+            lock (databaseLock)
+            {
+                return new List<PlayerObject>(players.Values);
+            }
         }
 
         public void SetPlayerStatus(ulong discordID, bool status)
@@ -150,7 +171,11 @@ namespace RiftBot
                 return;
             }
 
-            players[discordID].riftPlayer = status;
+            lock (databaseLock)
+            {
+                players[discordID].riftPlayer = status;
+            }
+                
         }
 
         //returns false if failed due to existing ID/not registered
@@ -165,8 +190,10 @@ namespace RiftBot
             {
                 return false;
             }
-
-            players[discordID].summonerIDs.Add(summonerID);
+            lock (databaseLock)
+            {
+                players[discordID].summonerIDs.Add(summonerID);
+            }
 
             return true;
         }
