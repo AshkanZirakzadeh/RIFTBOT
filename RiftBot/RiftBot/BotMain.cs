@@ -9,13 +9,14 @@ using RiotNet;
 using Discord.Commands;
 using System.Reflection;
 
-namespace RiftBot
+namespace LeaderboardBot
 {
-    class RiftBot
+    class BotMain
     {
         public static void Main(string[] args)
-            => new RiftBot().MainAsync().GetAwaiter().GetResult();
+            => new BotMain().MainAsync().GetAwaiter().GetResult();
 
+        public static BotMain botInstance;
         public static CommandHandler handler;
         public static DiscordSocketClient client;
         public static IRiotClient riotInstance;
@@ -24,9 +25,11 @@ namespace RiftBot
         System.Threading.Timer dbSaveTimer;
         System.Threading.Timer gameFetchTimer;
 
+        bool savingDatabase = false;
 
         public async Task MainAsync()
         {
+            botInstance = this;
             database = new Database();
             database.Load();
 
@@ -54,8 +57,8 @@ namespace RiftBot
 
             await handler.InstallCommandsAsync();
 
-            dbSaveTimer = new System.Threading.Timer(SaveDatabase, null, 1000, 1000 * 10); //10 seconds
-            gameFetchTimer = new System.Threading.Timer(FetchGames, null, 1000, 1000 * 60 * 10); //10 minutes
+            dbSaveTimer = new System.Threading.Timer(SaveDatabase, null, 1000, 1000 * 5); //10 seconds
+            gameFetchTimer = new System.Threading.Timer(FetchGames, null, 5000, 1000 * 60 * 1); //1 minutes
 
             client.Disconnected += (evt) =>
             {
@@ -71,13 +74,19 @@ namespace RiftBot
             database.Save();
         }
 
-        void FetchGames(object state)
+        public async void FetchGames(object state)
         {
-            List<Task> tasks = new List<Task>();
-            foreach(PlayerObject player in database.GetAllPlayers())
+            if (!savingDatabase)
             {
-                Console.WriteLine(string.Format("Attempting to fetch games for {0}", player.discordID));
-                tasks.Add(GetMatches.AddGamesToDatabase(database, player));
+                savingDatabase = true;
+                Console.WriteLine(string.Format("Attempting to fetch games"));
+                List<Task> tasks = new List<Task>();
+                foreach (PlayerObject player in database.GetAllPlayers())
+                {
+                    await GameUtility.AddGamesToDatabase(database, player);
+                }
+                Console.WriteLine(string.Format("Completed fetch games"));
+                savingDatabase = false;
             }
         }
 

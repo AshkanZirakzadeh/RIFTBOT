@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace RiftBot
+namespace LeaderboardBot
 {
     public class PlayerObject
     {
@@ -14,18 +14,24 @@ namespace RiftBot
         public DateTime created;
         public DateTime lastUpdated;
         public List<string> summonerIDs;
-        public bool riftPlayer;
+        public bool orgPlayer;
+
+        public bool IsMain(string summonerID)
+        {
+            return summonerIDs[0] == summonerID;
+        }
     }
 
     public class Game
     {
         public long gameID;
         public DateTime played;
+        public string summoner;
         public bool win;
         public int kills;
         public int deaths;
         public int assists;
-        public long visionScore;
+        public int visionScore;
         public int creepScore;
         public int championPlayed;
     }
@@ -41,6 +47,7 @@ namespace RiftBot
         private readonly object databaseLock = new object();
 
         const string filePath = @"Database.json";
+        const string backupPath = @"Backup-Database-{0}-{1}.json";
         Dictionary<ulong, PlayerObject> players;
         Dictionary<ulong, List<Game>> games;
 
@@ -77,6 +84,18 @@ namespace RiftBot
             return players.ContainsKey(discordID);
         }
 
+        public void Backup()
+        {
+            string json = JsonConvert.SerializeObject(
+                new DatabaseStore()
+                {
+                    games = games,
+                    players = players
+                });
+
+            File.WriteAllText(string.Format(backupPath, DateTime.UtcNow.Day, DateTime.UtcNow.Month), json);
+        }
+
         //Adds a new user to the database
         //Returns false if failed due to existing IDs
         public bool AddNewUser(ulong discordID, string summonerID)
@@ -95,7 +114,7 @@ namespace RiftBot
             {
                 discordID = discordID,
                 created = DateTime.UtcNow,
-                lastUpdated = DateTime.UtcNow,
+                lastUpdated = DateTime.UtcNow.AddDays(-30),
                 summonerIDs = new List<string>() { summonerID }
             };
 
@@ -110,7 +129,7 @@ namespace RiftBot
 
         //Adds information for a game to the database
         //Returns false if adding failed due to game already being in the database, and true otherwise
-        public bool AddNewGame(ulong discordID, long GameID, DateTime played, bool win, int kills, int deaths, int assists, long visionScore, int creepScore, int champion)
+        public bool AddNewGame(ulong discordID, string summonerID, long GameID, DateTime played, bool win, int kills, int deaths, int assists, long visionScore, int creepScore, int champion)
         {
             PlayerObject player = players[discordID];
 
@@ -127,15 +146,17 @@ namespace RiftBot
             Game newGame = new Game()
             {
                 gameID = GameID,
+                summoner = summonerID,
                 played = played,
                 win = win,
                 kills = kills,
                 deaths = deaths,
                 assists = assists,
-                visionScore = visionScore,
+                visionScore = (int) visionScore,
                 creepScore = creepScore,
                 championPlayed = champion
             };
+
             lock (databaseLock)
             {
                 games[player.discordID].Add(newGame);
@@ -164,6 +185,14 @@ namespace RiftBot
             }
         }
 
+        public PlayerObject GetPlayer(ulong discordID)
+        {
+            lock (databaseLock)
+            {
+                return players[discordID];
+            }
+        }
+
         public void SetPlayerStatus(ulong discordID, bool status)
         {
             if (!players.ContainsKey(discordID))
@@ -173,7 +202,7 @@ namespace RiftBot
 
             lock (databaseLock)
             {
-                players[discordID].riftPlayer = status;
+                players[discordID].orgPlayer = status;
             }
                 
         }

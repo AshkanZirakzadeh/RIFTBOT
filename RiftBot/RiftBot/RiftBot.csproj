@@ -156,11 +156,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Admin.cs" />
     <Compile Include="Database.cs" />
-    <Compile Include="GetMatches.cs" />
+    <Compile Include="GameUtility.cs" />
     <Compile Include="Keys.cs" />
+    <Compile Include="Leaderboard.cs" />
     <Compile Include="Manage.cs" />
-    <Compile Include="RiftBot.cs" />
+    <Compile Include="BotMain.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

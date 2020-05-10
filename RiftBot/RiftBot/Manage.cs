@@ -4,19 +4,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discord.Commands;
-using RiftBot;
+using LeaderboardBot;
 
 [Group("manage")]
 public class ManageModule : ModuleBase<SocketCommandContext>
 {
     [Command("register")]
-    public async Task Register(string summonerID)
+    public async Task Register(string summonerIDArg)
     {
-        if (summonerID == null)
+        if (summonerIDArg == null)
         {
             await ReplyAsync("Please supply a summonerID Ex: \"!manage register MYIGN\"");
         }
-        else if (RiftBot.RiftBot.database.DiscordUserExists(Context.Client.CurrentUser.Id))
+        else if (LeaderboardBot.BotMain.database.DiscordUserExists(Context.User.Id))
         {
             await ReplyAsync("You are already registered");
         }
@@ -26,8 +26,8 @@ public class ManageModule : ModuleBase<SocketCommandContext>
 
             try
             {
-                var summoner = (await RiftBot.RiftBot.riotInstance.GetSummonerBySummonerNameAsync(summonerID));
-                addSuccess = RiftBot.RiftBot.database.AddNewUser(Context.Client.CurrentUser.Id, summoner.AccountId);
+                var summoner = (await LeaderboardBot.BotMain.riotInstance.GetSummonerBySummonerNameAsync(summonerIDArg));
+                addSuccess = LeaderboardBot.BotMain.database.AddNewUser(Context.User.Id, summoner.AccountId);
 
                 if (addSuccess)
                 {
@@ -35,7 +35,7 @@ public class ManageModule : ModuleBase<SocketCommandContext>
                 }
                 else
                 {
-                    await ReplyAsync("Failed to register, you are either already registered or your summoner ID is already registered to someone else.");
+                    await ReplyAsync("Failed to register, your summoner ID is already registered to someone");
                 }
 
             }
